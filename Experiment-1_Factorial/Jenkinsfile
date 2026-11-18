@@ -1,0 +1,49 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "factorial-app"
+        IMAGE_TAG  = "latest"
+    }
+
+    stages {
+        stage('Checkout Source Code') {
+            steps {
+                echo 'Checking out source code from Git repository...'
+                checkout scm
+            }
+        }
+
+        stage('Execute Program & Unit Tests') {
+            steps {
+                echo 'Running factorial unit tests...'
+                sh 'python3 -m unittest test_factorial.py'
+                echo 'Executing factorial.py with sample value 6...'
+                sh 'python3 factorial.py 6'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo "Building Docker Image: ${IMAGE_NAME}:${IMAGE_TAG}..."
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+            }
+        }
+
+        stage('Run Docker Container') {
+            steps {
+                echo "Running application container..."
+                sh "docker run --rm ${IMAGE_NAME}:${IMAGE_TAG} python factorial.py 7"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline executed successfully! Docker image created and verified.'
+        }
+        failure {
+            echo 'Pipeline execution failed! Check console logs.'
+        }
+    }
+}

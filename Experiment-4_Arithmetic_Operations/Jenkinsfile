@@ -1,0 +1,70 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME  = "arithmetic-app"
+        IMAGE_TAG = "latest"
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                echo 'Checking out source code from Git repository...'
+                checkout scm
+            }
+        }
+
+        stage('Execute Unit Tests') {
+            steps {
+                echo 'Executing unit test suite...'
+                sh 'python3 -m unittest test_arithmetic.py'
+            }
+        }
+
+        stage('Execute Program Demonstrations') {
+            steps {
+                echo 'Testing addition: 15 + 25'
+                sh 'python3 arithmetic.py add 15 25'
+                echo 'Testing multiplication: 7 * 8'
+                sh 'python3 arithmetic.py mul 7 8'
+                echo 'Testing division: 100 / 4'
+                sh 'python3 arithmetic.py div 100 4'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo "Building Docker Image: ${APP_NAME}:${IMAGE_TAG}..."
+                sh "docker build -t ${APP_NAME}:${IMAGE_TAG} ."
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                echo 'Applying Kubernetes manifests...'
+                sh 'kubectl apply -f k8s/deployment.yaml'
+                sh 'kubectl apply -f k8s/service.yaml'
+                echo 'Verifying rollout status...'
+                sh 'kubectl rollout status deployment/arithmetic-app-deployment'
+            }
+        }
+
+        stage('Verify K8s Pods and Service') {
+            steps {
+                echo 'Listing active pods...'
+                sh 'kubectl get pods -l app=arithmetic-app'
+                echo 'Listing active service...'
+                sh 'kubectl get svc arithmetic-app-service'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Continuous Integration & Kubernetes Deployment Completed Successfully!'
+        }
+        failure {
+            echo 'Build or Deployment failed. Please inspect console logs.'
+        }
+    }
+}

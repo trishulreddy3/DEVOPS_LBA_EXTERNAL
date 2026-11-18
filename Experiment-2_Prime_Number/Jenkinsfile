@@ -1,0 +1,58 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_NAME   = "prime-app"
+        IMAGE_TAG  = "latest"
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                echo 'Checking out source code from Git repository...'
+                checkout scm
+            }
+        }
+
+        stage('Run Unit Tests') {
+            steps {
+                echo 'Running prime number unit tests...'
+                sh 'python3 -m unittest test_prime.py'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo "Building Docker Image: ${APP_NAME}:${IMAGE_TAG}..."
+                sh "docker build -t ${APP_NAME}:${IMAGE_TAG} ."
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                echo 'Applying Kubernetes manifests...'
+                sh 'kubectl apply -f k8s/deployment.yaml'
+                sh 'kubectl apply -f k8s/service.yaml'
+                echo 'Verifying deployment rollout...'
+                sh 'kubectl rollout status deployment/prime-app-deployment'
+            }
+        }
+
+        stage('Verify Deployed Application') {
+            steps {
+                echo 'Checking Kubernetes Pods and Service...'
+                sh 'kubectl get pods -l app=prime-app'
+                sh 'kubectl get svc prime-app-service'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Continuous Integration & Kubernetes Deployment Succeeded!'
+        }
+        failure {
+            echo 'Build or Deployment failed. Please check logs.'
+        }
+    }
+}
